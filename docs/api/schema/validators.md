@@ -158,3 +158,67 @@ Finally, we can add our validator in our service hooks
 ```ts
 sayHello: [schemaHooks.validateData(sayHelloValidator)]
 ```
+
+### Validating custom methods
+
+The `validateData` hook can also be used to validate the `data` of a [custom service method](../services.md#custom-methods). The following example shows a `send-message` custom method on a `user` service that sends a message to a user. First, we define the Typebox schema for the method data:
+
+```ts
+import { Type, Static } from '@feathersjs/typebox'
+
+// Schema for the custom method data
+export const sendMessageSchema = Type.Object(
+  {
+    text: Type.String()
+  },
+  { $id: 'SendMessage', additionalProperties: false }
+)
+
+export type SendMessageData = Static<typeof sendMessageSchema>
+```
+
+Then we can create a validation function for it using the `dataValidator` from the [usage section](#usage):
+
+```ts
+import { getValidator } from '@feathersjs/typebox'
+import { dataValidator } from '../validators'
+
+export const sendMessageValidator = getValidator(sendMessageSchema, dataValidator)
+```
+
+Now, the `user` service can implement the `send-message` custom method (which will only be available on the server unless enabled in the service `methods` option):
+
+```ts
+import { Application, Id, NullableId, Paginated, Params, ServiceMethods } from '@feathersjs/feathers'
+import { SendMessageData } from './users.schema'
+
+export class UserService {
+  // ... other service methods
+
+  async ['send-message'](id: Id, data: SendMessageData, params: Params) {
+    // Get the user we want to send a message to
+    const user = await this.get(id, params)
+
+    // Send the message to the user
+    console.log(`Sending message "${data.text}" to ${user.email}`)
+
+    return user
+  }
+}
+```
+
+Finally, we can add the `validateData` hook to the `send-message` method in the service hooks:
+
+```ts
+import { hooks as schemaHooks } from '@feathersjs/schema'
+import { sendMessageValidator } from './users.schema'
+
+app.service('users').hooks({
+  // ... other hooks
+  before: {
+    'send-message': [
+      schemaHooks.validateData(sendMessageValidator)
+    ]
+  }
+})
+```
